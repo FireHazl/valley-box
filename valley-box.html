@@ -7,7 +7,7 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #05070a;
+      background: #111;
       overflow: hidden;
       width: 100%;
       height: 100%;
@@ -18,9 +18,7 @@
       height: 100%;
     }
 
-    /* Чтобы куб выглядел чуть «игровым» */
     canvas {
-      image-rendering: pixelated;
       display: block;
     }
   </style>
@@ -32,10 +30,10 @@
   <script src="https://unpkg.com/three@0.161.0/build/three.min.js"></script>
 
   <script>
-    // Базовые переменные
     const container = document.getElementById('valley-box-container');
+
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x05070a);
+    scene.background = new THREE.Color(0x222222);
 
     const camera = new THREE.PerspectiveCamera(
       45,
@@ -45,75 +43,17 @@
     );
     camera.position.z = 3;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    // ----------------------------
-    // ПИКСЕЛЬНАЯ ТЕКСТУРА 
-    // ----------------------------
-
-    function createPixelTexture() {
-      // Мини-«спрайт» 8×8
-      const size = 8;
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-
-      // Фон — тёмно-синий
-      ctx.fillStyle = '#0b1020';
-      ctx.fillRect(0, 0, size, size);
-
-      // Пиксели 
-      for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-          const r = Math.random();
-          if (r > 0.82) {
-            ctx.fillStyle = '#d8f0ff'; // светлая «звезда»
-          } else if (r > 0.70) {
-            ctx.fillStyle = '#4a6b88'; // лёгкие пятна
-          } else {
-            continue; // фон
-          }
-          ctx.fillRect(x, y, 1, 1);
-        }
-      }
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.magFilter = THREE.NearestFilter;
-      texture.minFilter = THREE.NearestFilter;
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(2, 2); // больше шума ?
-      return texture;
-    }
-
-    const pixelTexture = createPixelTexture();
-
-    const material = new THREE.MeshStandardMaterial({
-      map: pixelTexture,
-      roughness: 0.9,
-      metalness: 0.0
-    });
-
+    // Простой яркий материал, не зависящий от света
     const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshNormalMaterial(); // Радужная штука
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
-    // Лёгкий свет
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambient);
-
-    const directional = new THREE.DirectionalLight(0xffffff, 0.9);
-    directional.position.set(2, 3, 4);
-    scene.add(directional);
-
-    // ----------------------------
-    // ВРАЩЕНИЕ МЫШЬЮ
-    // ----------------------------
-
+    // Лёгкое автоворощение
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
 
@@ -137,7 +77,7 @@
         y: e.clientY - previousMousePosition.y
       };
 
-      const rotationSpeed = 0.3; // регулирует чувствительность
+      const rotationSpeed = 0.3;
 
       cube.rotation.y += toRadians(deltaMove.x * rotationSpeed);
       cube.rotation.x += toRadians(deltaMove.y * rotationSpeed);
@@ -156,7 +96,7 @@
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 
-    // Поддержка тач-устройств
+    // Тач
     renderer.domElement.addEventListener('touchstart', function (e) {
       if (e.touches.length === 1) {
         isDragging = true;
@@ -190,22 +130,18 @@
       isDragging = false;
     });
 
-    // Лёгкое автоворощение, чтобы куб не «замирал» полностью
-    let autoRotate = true;
-
     function animate() {
       requestAnimationFrame(animate);
 
-      if (autoRotate && !isDragging) {
-        cube.rotation.y += 0.0025;
-        cube.rotation.x += 0.0015;
+      if (!isDragging) {
+        cube.rotation.y += 0.01;
+        cube.rotation.x += 0.005;
       }
 
       renderer.render(scene, camera);
     }
     animate();
 
-    // Ресайз
     window.addEventListener('resize', () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
