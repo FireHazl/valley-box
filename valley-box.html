@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Obsessive Valley Box</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #05070a;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+
+    #valley-box-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Чтобы куб выглядел чуть «игровым» */
+    canvas {
+      image-rendering: pixelated;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="valley-box-container"></div>
+
+  <!-- Three.js с CDN -->
+  <script src="https://unpkg.com/three@0.161.0/build/three.min.js"></script>
+
+  <script>
+    // Базовые переменные
+    const container = document.getElementById('valley-box-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05070a);
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+    camera.position.z = 3;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // ----------------------------
+    // ПИКСЕЛЬНАЯ ТЕКСТУРА 
+    // ----------------------------
+
+    function createPixelTexture() {
+      // Мини-«спрайт» 8×8
+      const size = 8;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Фон — тёмно-синий
+      ctx.fillStyle = '#0b1020';
+      ctx.fillRect(0, 0, size, size);
+
+      // Пиксели 
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const r = Math.random();
+          if (r > 0.82) {
+            ctx.fillStyle = '#d8f0ff'; // светлая «звезда»
+          } else if (r > 0.70) {
+            ctx.fillStyle = '#4a6b88'; // лёгкие пятна
+          } else {
+            continue; // фон
+          }
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(2, 2); // больше шума ?
+      return texture;
+    }
+
+    const pixelTexture = createPixelTexture();
+
+    const material = new THREE.MeshStandardMaterial({
+      map: pixelTexture,
+      roughness: 0.9,
+      metalness: 0.0
+    });
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // Лёгкий свет
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+
+    const directional = new THREE.DirectionalLight(0xffffff, 0.9);
+    directional.position.set(2, 3, 4);
+    scene.add(directional);
+
+    // ----------------------------
+    // ВРАЩЕНИЕ МЫШЬЮ
+    // ----------------------------
+
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    function toRadians(angle) {
+      return angle * (Math.PI / 180);
+    }
+
+    function onMouseDown(e) {
+      isDragging = true;
+      previousMousePosition = {
+        x: e.clientX,
+        y: e.clientY
+      };
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging) return;
+
+      const deltaMove = {
+        x: e.clientX - previousMousePosition.x,
+        y: e.clientY - previousMousePosition.y
+      };
+
+      const rotationSpeed = 0.3; // регулирует чувствительность
+
+      cube.rotation.y += toRadians(deltaMove.x * rotationSpeed);
+      cube.rotation.x += toRadians(deltaMove.y * rotationSpeed);
+
+      previousMousePosition = {
+        x: e.clientX,
+        y: e.clientY
+      };
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+    }
+
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    // Поддержка тач-устройств
+    renderer.domElement.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        previousMousePosition = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        };
+      }
+    });
+
+    renderer.domElement.addEventListener('touchmove', function (e) {
+      if (!isDragging || e.touches.length !== 1) return;
+
+      const deltaMove = {
+        x: e.touches[0].clientX - previousMousePosition.x,
+        y: e.touches[0].clientY - previousMousePosition.y
+      };
+
+      const rotationSpeed = 0.3;
+
+      cube.rotation.y += toRadians(deltaMove.x * rotationSpeed);
+      cube.rotation.x += toRadians(deltaMove.y * rotationSpeed);
+
+      previousMousePosition = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    });
+
+    window.addEventListener('touchend', function () {
+      isDragging = false;
+    });
+
+    // Лёгкое автоворощение, чтобы куб не «замирал» полностью
+    let autoRotate = true;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (autoRotate && !isDragging) {
+        cube.rotation.y += 0.0025;
+        cube.rotation.x += 0.0015;
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Ресайз
+    window.addEventListener('resize', () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      renderer.setSize(width, height);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
+</html>
